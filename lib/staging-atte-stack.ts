@@ -1,16 +1,24 @@
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as cdk from "aws-cdk-lib";
+import * as assets from "aws-cdk-lib/aws-s3-assets";
+import { Construct } from "constructs";
+import * as path from "path";
 
 export class StagingAtteStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // The code that defines your stack goes here
+    const archive = new assets.Asset(this, "AtteArchive", {
+      path: path.join(__dirname, "../assets/atte-1.3.0.zip"),
+    });
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'StagingAtteQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
+    new cdk.CfnOutput(this, "AtteArchiveBucketName", {
+      value: archive.s3BucketName,
+    });
+    new cdk.CfnOutput(this, "AtteArchiveHttpUrl", {
+      value: archive.httpUrl,
+    });
+    new cdk.CfnOutput(this, "AtteArchiveObjectUrl", {
+      value: archive.s3ObjectUrl,
+    });
   }
 }
