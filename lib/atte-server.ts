@@ -77,8 +77,30 @@ export class AtteServer extends Construct {
       "dnf update -y",
       "dnf install -y unzip",
       "dnf install -y nginx",
+      `cp ${nginxConfigPath} /etc/nginx/nginx.conf`,
       "systemctl start nginx",
-      "systemctl enable nginx"
+      "systemctl enable nginx",
+
+      "dnf install -y php8.2 php8.2-zip",
+      'sed -i "s/user = apache/user = nginx/" /etc/php-fpm.d/www.conf',
+      'sed -i "s/group = apache/group = nginx/" /etc/php-fpm.d/www.conf',
+      "php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\"",
+      "php composer-setup.php --install-dir=/usr/bin --filename=composer",
+      "systemctl start php-fpm",
+      "systemctl enable php-fpm",
+
+      "mkdir -p /var/www/atte/public",
+      "echo '<?php phpinfo();' > /var/www/atte/public/index.php"
+
+      // 'mkdir -p /var/www/atte',
+      // 'cd /var/www/atte',
+      // `unzip -j ${archivePath} -d .`,
+      // 'cp .env.example .env',
+      // 'sed -i "s/APP_ENV=local/APP_ENV=staging/" .env',
+      // 'sed -i "s/APP_URL=http://localhost/APP_URL=http://$(curl inet-ip.info/ip)/" .env',
+      // 'composer install --prefer-dist --no-progress --no-suggest',
+      // 'php artisan key:generate',
+      // 'chown -R nginx:nginx /var/www/atte'
     );
 
     return userData;

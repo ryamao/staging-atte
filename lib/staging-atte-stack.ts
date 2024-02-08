@@ -29,5 +29,9 @@ export class StagingAtteStack extends cdk.Stack {
       vpc,
     });
     archive.grantRead(atteServer.instance.role);
+
+    new cdk.CfnOutput(this, "PublicIp", {
+      value: atteServer.instance.instancePublicIp,
+    });
   }
 }
