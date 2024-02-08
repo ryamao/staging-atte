@@ -10,7 +10,7 @@ export class StagingAtteStack extends cdk.Stack {
     super(scope, id, props);
 
     const archive = new assets.Asset(this, "AtteArchive", {
-      path: path.join(__dirname, "../assets/atte-1.3.0.zip"),
+      path: path.join(__dirname, "../assets/atte-1.3.1.zip"),
     });
 
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -27,6 +27,7 @@ export class StagingAtteStack extends cdk.Stack {
 
     const atteServer = new AtteServer(this, "Ec2Instance", {
       vpc,
+      archive: archive,
     });
     archive.grantRead(atteServer.instance.role);
 

@@ -6,6 +6,7 @@ import { Construct } from "constructs";
 
 export interface AtteServerProps {
   vpc: ec2.IVpc;
+  archive: assets.Asset;
 }
 
 export class AtteServer extends Construct {
@@ -45,7 +46,7 @@ export class AtteServer extends Construct {
       path: path.join(__dirname, "../assets/nginx.conf"),
     });
     const userData = ec2.UserData.forLinux();
-    this.addS3DownloadCommand(userData, nginxConfig);
+    this.addS3DownloadCommand(userData, nginxConfig, props.archive);
 
     this.instance = new ec2.Instance(this, "Instance", {
       instanceType: ec2.InstanceType.of(
@@ -66,11 +67,17 @@ export class AtteServer extends Construct {
 
   private addS3DownloadCommand(
     userData: ec2.UserData,
-    nginxConfig: assets.Asset
+    nginxConfig: assets.Asset,
+    archive: assets.Asset
   ) {
     const nginxConfigPath = userData.addS3DownloadCommand({
       bucket: nginxConfig.bucket,
       bucketKey: nginxConfig.s3ObjectKey,
+    });
+
+    const archivePath = userData.addS3DownloadCommand({
+      bucket: archive.bucket,
+      bucketKey: archive.s3ObjectKey,
     });
 
     userData.addCommands(
@@ -85,22 +92,22 @@ export class AtteServer extends Construct {
       'sed -i "s/user = apache/user = nginx/" /etc/php-fpm.d/www.conf',
       'sed -i "s/group = apache/group = nginx/" /etc/php-fpm.d/www.conf',
       "php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\"",
-      "php composer-setup.php --install-dir=/usr/bin --filename=composer",
+      "php /composer-setup.php --install-dir=/usr/local/bin --filename=composer",
       "systemctl start php-fpm",
       "systemctl enable php-fpm",
 
-      "mkdir -p /var/www/atte/public",
-      "echo '<?php phpinfo();' > /var/www/atte/public/index.php"
-
-      // 'mkdir -p /var/www/atte',
-      // 'cd /var/www/atte',
-      // `unzip -j ${archivePath} -d .`,
-      // 'cp .env.example .env',
-      // 'sed -i "s/APP_ENV=local/APP_ENV=staging/" .env',
-      // 'sed -i "s/APP_URL=http://localhost/APP_URL=http://$(curl inet-ip.info/ip)/" .env',
-      // 'composer install --prefer-dist --no-progress --no-suggest',
-      // 'php artisan key:generate',
-      // 'chown -R nginx:nginx /var/www/atte'
+      "mkdir -p /var/www",
+      `unzip ${archivePath} -d /var/www`,
+      "mv /var/www/atte-1.3.1 /var/www/atte",
+      "cd /var/www/atte",
+      "cp .env.example .env",
+      'sed -i "s/APP_ENV=local/APP_ENV=staging/" .env',
+      'sed -i "s/APP_DEBUG=true/APP_DEBUG=false/" .env',
+      'sed -i "s/APP_URL=http:\\/\\/localhost/APP_URL=http:\\/\\/$(curl inet-ip.info\\/ip)/" .env',
+      "composer install --prefer-dist --no-progress --no-suggest",
+      "php artisan key:generate",
+      // "php artisan migrate --seed",
+      "chown -R nginx:nginx /var/www/atte"
     );
 
     return userData;
