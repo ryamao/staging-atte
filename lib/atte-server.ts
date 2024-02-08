@@ -1,5 +1,7 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as assets from "aws-cdk-lib/aws-s3-assets";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as path from "path";
 import { Construct } from "constructs";
 
 export interface AtteServerProps {
@@ -7,7 +9,7 @@ export interface AtteServerProps {
 }
 
 export class AtteServer extends Construct {
-  public readonly instance: ec2.IInstance;
+  public readonly instance: ec2.Instance;
 
   constructor(scope: Construct, id: string, props: AtteServerProps) {
     super(scope, id);
@@ -39,6 +41,12 @@ export class AtteServer extends Construct {
       format: ec2.KeyPairFormat.PEM,
     });
 
+    const nginxConfig = new assets.Asset(this, "NginxConfig", {
+      path: path.join(__dirname, "../assets/nginx.conf"),
+    });
+    const userData = ec2.UserData.forLinux();
+    this.addS3DownloadCommand(userData, nginxConfig);
+
     this.instance = new ec2.Instance(this, "Instance", {
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T2,
@@ -52,6 +60,27 @@ export class AtteServer extends Construct {
       role,
       securityGroup,
       keyPair,
+      userData,
     });
+  }
+
+  private addS3DownloadCommand(
+    userData: ec2.UserData,
+    nginxConfig: assets.Asset
+  ) {
+    const nginxConfigPath = userData.addS3DownloadCommand({
+      bucket: nginxConfig.bucket,
+      bucketKey: nginxConfig.s3ObjectKey,
+    });
+
+    userData.addCommands(
+      "dnf update -y",
+      "dnf install -y unzip",
+      "dnf install -y nginx",
+      "systemctl start nginx",
+      "systemctl enable nginx"
+    );
+
+    return userData;
   }
 }

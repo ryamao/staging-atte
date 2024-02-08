@@ -28,15 +28,6 @@ export class StagingAtteStack extends cdk.Stack {
     const atteServer = new AtteServer(this, "Ec2Instance", {
       vpc,
     });
-
-    new cdk.CfnOutput(this, "AtteArchiveBucketName", {
-      value: archive.s3BucketName,
-    });
-    new cdk.CfnOutput(this, "AtteArchiveHttpUrl", {
-      value: archive.httpUrl,
-    });
-    new cdk.CfnOutput(this, "AtteArchiveObjectUrl", {
-      value: archive.s3ObjectUrl,
-    });
+    archive.grantRead(atteServer.instance.role);
   }
 }
