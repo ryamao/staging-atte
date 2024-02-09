@@ -11,7 +11,7 @@ export interface UserDataProps {
   atteVersion: string;
   atteArchive: assets.Asset;
   nginxConfig: assets.Asset;
-  appUrl: string;
+  appHost: string;
   dbHost: string;
   dbSecretId: string;
 }
@@ -71,7 +71,7 @@ export class AtteServer extends Construct {
       "cp .env.example .env",
       'sed -i "s/^APP_ENV=.*$/APP_ENV=staging/" .env',
       'sed -i "s/^APP_DEBUG=.*$/APP_DEBUG=false/" .env',
-      `sed -i "s/^APP_URL=.*$/APP_URL=${props.appUrl}" .env`,
+      `sed -i "s/^APP_URL=.*$/APP_URL=http:\\/\\/${props.appHost}/" .env`,
       `sed -i "s/^DB_HOST=.*$/DB_HOST=${props.dbHost}/" .env`,
       `sed -i "s/^DB_USERNAME=.*$/DB_USERNAME=$(aws secretsmanager get-secret-value --secret-id ${props.dbSecretId} --query SecretString | jq -r . | jq -r .username)/" .env`,
       `sed -i "s/^DB_PASSWORD=.*$/DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id ${props.dbSecretId} --query SecretString | jq -r . | jq -r .password)/" .env`,

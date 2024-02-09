@@ -57,7 +57,7 @@ export class StagingAtteStack extends cdk.Stack {
       atteVersion: StagingAtteStack.ATTE_VERSION,
       atteArchive: archive,
       nginxConfig,
-      appUrl: loadBalancer.alb.loadBalancerDnsName,
+      appHost: loadBalancer.alb.loadBalancerDnsName,
       dbHost: dbServer.instance.dbInstanceEndpointAddress,
       dbSecretId: dbServer.instance.secret!.secretArn,
     });
