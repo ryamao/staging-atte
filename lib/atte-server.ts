@@ -57,7 +57,8 @@ export class AtteServer extends Construct {
       this.autoScalingGroup.scaleOnSchedule(`ScaleDownAt${schedule.hour}`, {
         schedule: autoscaling.Schedule.cron(schedule),
         timeZone: "Asia/Tokyo",
-        desiredCapacity: schedule.desiredCapacity,
+        minCapacity: schedule.desiredCapacity,
+        maxCapacity: schedule.desiredCapacity,
       });
     });
   }
@@ -142,12 +143,6 @@ export class AtteServer extends Construct {
       allowAllOutbound: true,
     });
 
-    sg.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(22),
-      "Allow SSH from anywhere"
-    );
-
     return sg;
   }
 
@@ -178,8 +173,8 @@ export class AtteServer extends Construct {
       launchTemplate,
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      minCapacity: 0,
-      maxCapacity: 2,
+      minCapacity: 1,
+      maxCapacity: 1,
       ssmSessionPermissions: true,
       healthCheck: autoscaling.HealthCheck.elb({
         grace: cdk.Duration.seconds(300),
