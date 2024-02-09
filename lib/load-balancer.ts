@@ -8,7 +8,7 @@ export interface LoadBalancerProps {
 }
 
 export class LoadBalancer extends Construct {
-  public readonly alb: elbv2.IApplicationLoadBalancer;
+  private readonly alb: elbv2.ApplicationLoadBalancer;
 
   constructor(scope: Construct, id: string, props: LoadBalancerProps) {
     super(scope, id);
@@ -30,6 +30,14 @@ export class LoadBalancer extends Construct {
       port: 80,
       targets: [props.target],
     });
+  }
+
+  public get connections(): ec2.Connections {
+    return this.alb.connections;
+  }
+
+  public get dnsName(): string {
+    return this.alb.loadBalancerDnsName;
   }
 
   private createSecurityGroup(vpc: ec2.IVpc): ec2.SecurityGroup {

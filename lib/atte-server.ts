@@ -1,5 +1,9 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as assets from "aws-cdk-lib/aws-s3-assets";
+import * as autoscaling from "aws-cdk-lib/aws-autoscaling";
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as elbv2_t from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import { Construct } from "constructs";
 import path = require("path");
 
@@ -17,7 +21,7 @@ export interface UserDataProps {
 }
 
 export class AtteServer extends Construct {
-  public readonly instance: ec2.Instance;
+  private readonly instance: ec2.Instance;
 
   constructor(scope: Construct, id: string, props: AtteServerProps) {
     super(scope, id);
@@ -32,20 +36,34 @@ export class AtteServer extends Construct {
     this.instance = this.createInstance(props.vpc, securityGroup, keyPair);
   }
 
-  public addUserData(props: UserDataProps) {
-    const userData = this.instance.userData;
+  public get loadBalancerTarget(): elbv2.IApplicationLoadBalancerTarget {
+    return new elbv2_t.InstanceTarget(this.instance);
+  }
 
-    const nginxConfigPath = userData.addS3DownloadCommand({
+  public get role(): iam.IRole {
+    return this.instance.role;
+  }
+
+  public get connections(): ec2.Connections {
+    return this.instance.connections;
+  }
+
+  public get userData(): ec2.UserData {
+    return this.instance.userData;
+  }
+
+  public addUserData(props: UserDataProps) {
+    const nginxConfigPath = this.userData.addS3DownloadCommand({
       bucket: props.nginxConfig.bucket,
       bucketKey: props.nginxConfig.s3ObjectKey,
     });
 
-    const archivePath = userData.addS3DownloadCommand({
+    const archivePath = this.userData.addS3DownloadCommand({
       bucket: props.atteArchive.bucket,
       bucketKey: props.atteArchive.s3ObjectKey,
     });
 
-    userData.addCommands(
+    this.userData.addCommands(
       "dnf update -y",
       "dnf install -y unzip",
       "dnf install -y nginx",

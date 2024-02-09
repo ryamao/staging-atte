@@ -1,7 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as assets from "aws-cdk-lib/aws-s3-assets";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as elbv2_t from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import * as path from "path";
 import { Construct } from "constructs";
 import { AtteServer } from "./atte-server";
@@ -35,21 +34,17 @@ export class StagingAtteStack extends cdk.Stack {
 
     const loadBalancer = new LoadBalancer(this, "LoadBalancer", {
       vpc,
-      target: new elbv2_t.InstanceTarget(atteServer.instance),
+      target: atteServer.loadBalancerTarget,
     });
 
-    archive.grantRead(atteServer.instance);
-    nginxConfig.grantRead(atteServer.instance);
-    dbServer.instance.grantConnect(atteServer.instance);
-    dbServer.instance.secret?.grantRead(atteServer.instance);
+    archive.grantRead(atteServer.role);
+    nginxConfig.grantRead(atteServer.role);
+    dbServer.instance.grantConnect(atteServer.role);
+    dbServer.secret?.grantRead(atteServer.role);
 
-    dbServer.instance.connections.allowFrom(
-      atteServer.instance,
-      ec2.Port.tcp(3306)
-    );
-
-    atteServer.instance.connections.allowFrom(
-      loadBalancer.alb,
+    dbServer.connections.allowFrom(atteServer.connections, ec2.Port.tcp(3306));
+    atteServer.connections.allowFrom(
+      loadBalancer.connections,
       ec2.Port.tcp(80)
     );
 
@@ -57,13 +52,13 @@ export class StagingAtteStack extends cdk.Stack {
       atteVersion: StagingAtteStack.ATTE_VERSION,
       atteArchive: archive,
       nginxConfig,
-      appHost: loadBalancer.alb.loadBalancerDnsName,
+      appHost: loadBalancer.dnsName,
       dbHost: dbServer.instance.dbInstanceEndpointAddress,
-      dbSecretId: dbServer.instance.secret!.secretArn,
+      dbSecretId: dbServer.secret!.secretArn,
     });
 
     new cdk.CfnOutput(this, "ApplicationURL", {
-      value: `http://${loadBalancer.alb.loadBalancerDnsName}`,
+      value: `http://${loadBalancer.dnsName}`,
     });
   }
 

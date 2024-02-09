@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 
 export interface DatabaseServerProps {
@@ -8,15 +9,14 @@ export interface DatabaseServerProps {
 }
 
 export class DatabaseServer extends Construct {
-  public readonly instance: rds.DatabaseInstance;
-  public readonly credentials: rds.Credentials;
+  private readonly rdsInstance: rds.DatabaseInstance;
 
   constructor(scope: Construct, id: string, props: DatabaseServerProps) {
     super(scope, id);
 
-    this.credentials = rds.Credentials.fromGeneratedSecret("admin");
+    const credentials = rds.Credentials.fromGeneratedSecret("admin");
 
-    this.instance = new rds.DatabaseInstance(this, "Instance", {
+    this.rdsInstance = new rds.DatabaseInstance(this, "Instance", {
       engine: rds.DatabaseInstanceEngine.mysql({
         version: rds.MysqlEngineVersion.VER_8_0_35,
       }),
@@ -28,9 +28,21 @@ export class DatabaseServer extends Construct {
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
-      credentials: this.credentials,
+      credentials,
       databaseName: "atte",
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+  }
+
+  public get instance(): rds.IDatabaseInstance {
+    return this.rdsInstance;
+  }
+
+  public get connections(): ec2.Connections {
+    return this.rdsInstance.connections;
+  }
+
+  public get secret(): secretsmanager.ISecret | undefined {
+    return this.rdsInstance.secret;
   }
 }
