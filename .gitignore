@@ -1,3 +1,5 @@
+.vscode
+
 *.js
 !jest.config.js
 *.d.ts

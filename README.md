@@ -1,14 +1,83 @@
-# Welcome to your CDK TypeScript project
+# 勤怠管理システム「Atte」の AWS 環境構築ツール
 
-This is a blank project for CDK development with TypeScript.
+## 概要
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+[Atte](https://github.com/ryamao/atte) はプログラミングスクールの課題で作成した Web ベースの勤怠管理システムです。この CDK アプリケーションは [Atte](https://github.com/ryamao/atte) を AWS 上にデプロイするためのものです。
 
-## Useful commands
+## システム構成図
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+![Staging Atte](./doc/Atteシステム構成図.drawio.svg)
+
+## 開発環境
+
+- Node.js 20.10.0
+- TypeScript 5.3.3
+- AWS CLI 2.15.17
+- AWS CDK 2.126.0
+
+## セットアップ
+
+### 事前準備
+
+- AWS アカウントをお持ちでない場合は [AWS アカウントの作成](https://aws.amazon.com/jp/premiumsupport/knowledge-center/create-and-activate-aws-account/) を行ってください。
+- [AWS CLI](https://aws.amazon.com/jp/cli/) と [AWS CDK](https://aws.amazon.com/jp/cdk/) のインストールが必要です。
+- IAM ロール `AdministratorAccess` がアタッチされたユーザーで AWS CLI にログインしてください。
+
+### リポジトリのクローン
+
+```bash
+git clone https://github.com/ryamao/staging-atte
+cd staging-atte
+```
+
+### パッケージのインストール
+
+```bash
+npm install
+```
+
+### デプロイ
+
+```shell-session
+$ cdk deploy
+...
+Outputs:
+StagingAtteStack.ApplicationURL = http://...
+...
+```
+
+デプロイが完了すると `Outputs` に `ApplicationURL` が表示されます。ブラウザでアクセスして動作を確認してください。
+
+### 削除
+
+```bash
+cdk destroy
+```
+
+## ファイル構成
+
+```text
+.
+├── README.md
+├── bin
+│   └── staging-atte.ts
+├── lib
+│   ├── staging-atte-stack.ts
+│   ├── atte-server.ts
+│   ├── database-server.ts
+│   └── load-balancer.ts
+└── assets
+    ├── atte-x.y.z.zip
+    └── nginx.conf
+```
+
+## ファイルの説明
+
+- `README.md`: このファイル
+- `bin/staging-atte.ts`: CDK アプリケーションのエントリーポイント
+- `lib/staging-atte-stack.ts`: CDK スタックの定義
+- `lib/atte-server.ts`: Auto Scaling Group
+- `lib/database-server.ts`: RDS
+- `lib/load-balancer.ts`: Application Load Balancer
+- `assets/atte-x.y.z.zip`: Atte のソースコード
+- `assets/nginx.conf`: Laravel 用の Nginx 設定ファイル
