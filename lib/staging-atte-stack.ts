@@ -7,7 +7,11 @@ import { AtteServer } from "./atte-server";
 import { DatabaseServer } from "./database-server";
 import { LoadBalancer } from "./load-balancer";
 
+/**
+ * Atteのステージング環境を構築するスタック
+ */
 export class StagingAtteStack extends cdk.Stack {
+  /** デプロイで使用するアーカイブのバージョン */
   static readonly ATTE_VERSION = "1.3.2";
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -34,7 +38,7 @@ export class StagingAtteStack extends cdk.Stack {
 
     const loadBalancer = new LoadBalancer(this, "LoadBalancer", {
       vpc,
-      target: atteServer.loadBalancerTarget,
+      target: atteServer.asLoadBalancerTarget(),
     });
 
     archive.grantRead(atteServer.role);
@@ -48,7 +52,7 @@ export class StagingAtteStack extends cdk.Stack {
       ec2.Port.tcp(80)
     );
 
-    atteServer.addUserData({
+    atteServer.addBootScript({
       atteVersion: StagingAtteStack.ATTE_VERSION,
       atteArchive: archive,
       nginxConfig,
@@ -62,6 +66,7 @@ export class StagingAtteStack extends cdk.Stack {
     });
   }
 
+  /** VPCを作成する */
   private createVpc() {
     return new ec2.Vpc(this, "Vpc", {
       ipAddresses: ec2.IpAddresses.cidr("10.0.0.0/16"),

@@ -1,17 +1,19 @@
+import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as assets from "aws-cdk-lib/aws-s3-assets";
 import * as autoscaling from "aws-cdk-lib/aws-autoscaling";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import * as elbv2_t from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import { Construct } from "constructs";
 import path = require("path");
 
+/** アプリケーションサーバーのプロパティ */
 export interface AtteServerProps {
   vpc: ec2.IVpc;
 }
 
-export interface UserDataProps {
+/** アプリケーションサーバーの起動スクリプトのプロパティ */
+export interface BootScriptProps {
   atteVersion: string;
   atteArchive: assets.Asset;
   nginxConfig: assets.Asset;
@@ -20,8 +22,20 @@ export interface UserDataProps {
   dbSecretId: string;
 }
 
+/** Atteのアプリケーションサーバー */
 export class AtteServer extends Construct {
-  private readonly instance: ec2.Instance;
+  private readonly autoScalingGroup: autoscaling.AutoScalingGroup;
+
+  private static SCALING_SCHEDULE = [
+    { hour: "1", minute: "0", desiredCapacity: 0 },
+    { hour: "6", minute: "0", desiredCapacity: 1 },
+    { hour: "8", minute: "30", desiredCapacity: 2 },
+    { hour: "9", minute: "30", desiredCapacity: 1 },
+    { hour: "12", minute: "0", desiredCapacity: 2 },
+    { hour: "13", minute: "0", desiredCapacity: 1 },
+    { hour: "17", minute: "30", desiredCapacity: 2 },
+    { hour: "18", minute: "30", desiredCapacity: 1 },
+  ];
 
   constructor(scope: Construct, id: string, props: AtteServerProps) {
     super(scope, id);
@@ -33,26 +47,43 @@ export class AtteServer extends Construct {
       format: ec2.KeyPairFormat.PEM,
     });
 
-    this.instance = this.createInstance(props.vpc, securityGroup, keyPair);
+    this.autoScalingGroup = this.createAutoScalingGroup(
+      props.vpc,
+      securityGroup,
+      keyPair
+    );
+
+    AtteServer.SCALING_SCHEDULE.forEach((schedule) => {
+      this.autoScalingGroup.scaleOnSchedule(`ScaleDownAt${schedule.hour}`, {
+        schedule: autoscaling.Schedule.cron(schedule),
+        timeZone: "Asia/Tokyo",
+        desiredCapacity: schedule.desiredCapacity,
+      });
+    });
   }
 
-  public get loadBalancerTarget(): elbv2.IApplicationLoadBalancerTarget {
-    return new elbv2_t.InstanceTarget(this.instance);
-  }
-
+  /** アプリケーションサーバーのIAMロール */
   public get role(): iam.IRole {
-    return this.instance.role;
+    return this.autoScalingGroup.role;
   }
 
+  /** アプリケーションサーバーのネットワークコネクション */
   public get connections(): ec2.Connections {
-    return this.instance.connections;
+    return this.autoScalingGroup.connections;
   }
 
+  /** アプリケーションサーバーのユーザーデータ */
   public get userData(): ec2.UserData {
-    return this.instance.userData;
+    return this.autoScalingGroup.userData;
   }
 
-  public addUserData(props: UserDataProps) {
+  /** アプリケーションサーバーをロードバランサーのターゲットとして使用する */
+  public asLoadBalancerTarget(): elbv2.IApplicationLoadBalancerTarget {
+    return this.autoScalingGroup;
+  }
+
+  /** アプリケーションサーバーのユーザーデータに起動スクリプトを追加する */
+  public addBootScript(props: BootScriptProps) {
     const nginxConfigPath = this.userData.addS3DownloadCommand({
       bucket: props.nginxConfig.bucket,
       bucketKey: props.nginxConfig.s3ObjectKey,
@@ -104,6 +135,7 @@ export class AtteServer extends Construct {
     );
   }
 
+  /** セキュリティグループを作成する */
   private createSecurityGroup(vpc: ec2.IVpc): ec2.SecurityGroup {
     const sg = new ec2.SecurityGroup(this, "SecurityGroup", {
       vpc,
@@ -119,12 +151,13 @@ export class AtteServer extends Construct {
     return sg;
   }
 
-  private createInstance(
+  /** オートスケーリンググループを作成する */
+  private createAutoScalingGroup(
     vpc: ec2.IVpc,
     securityGroup: ec2.SecurityGroup,
     keyPair: ec2.KeyPair
-  ): ec2.Instance {
-    return new ec2.Instance(this, "Instance", {
+  ): autoscaling.AutoScalingGroup {
+    const launchTemplate = new ec2.LaunchTemplate(this, "LaunchTemplate", {
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T2,
         ec2.InstanceSize.MICRO
@@ -133,13 +166,24 @@ export class AtteServer extends Construct {
         generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023,
         cpuType: ec2.AmazonLinuxCpuType.X86_64,
       }),
-      vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PUBLIC,
-      },
+      role: new iam.Role(this, "Role", {
+        assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+      }),
       securityGroup,
       keyPair,
+      associatePublicIpAddress: true,
+    });
+
+    return new autoscaling.AutoScalingGroup(this, "AutoScalingGroup", {
+      launchTemplate,
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      minCapacity: 0,
+      maxCapacity: 2,
       ssmSessionPermissions: true,
+      healthCheck: autoscaling.HealthCheck.elb({
+        grace: cdk.Duration.seconds(300),
+      }),
     });
   }
 }

@@ -4,10 +4,12 @@ import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 
+/** データベースサーバーのプロパティ */
 export interface DatabaseServerProps {
   vpc: ec2.IVpc;
 }
 
+/** Atteのデータベースサーバー */
 export class DatabaseServer extends Construct {
   private readonly rdsInstance: rds.DatabaseInstance;
 
@@ -34,14 +36,17 @@ export class DatabaseServer extends Construct {
     });
   }
 
+  /** データベースサーバーのインスタンス */
   public get instance(): rds.IDatabaseInstance {
     return this.rdsInstance;
   }
 
+  /** データベースサーバーのネットワークコネクション */
   public get connections(): ec2.Connections {
     return this.rdsInstance.connections;
   }
 
+  /** データベースサーバーの Secrets Manager シークレット */
   public get secret(): secretsmanager.ISecret | undefined {
     return this.rdsInstance.secret;
   }
